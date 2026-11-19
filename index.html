@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenSpace — know it fits before you buy it</title>
+<meta name="description" content="OpenSpace scans your room with an iPhone Pro and checks real furniture against your walls, walkway, doors and delivery path before you buy.">
+<meta property="og:title" content="OpenSpace — know it fits before you buy it">
+<meta property="og:description" content="Scan your room. Pick the piece to replace. See which real products fit, and why.">
+<meta name="theme-color" content="#F7F8F6">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230E7C66'/%3E%3Cpath d='M8 22V10h16' stroke='%23fff' stroke-width='3' fill='none'/%3E%3C/svg%3E">
+<!-- Awin site verification: add the code Awin assigns during sign-up here. -->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Instrument+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<style>
+  :root {
+    --ground:#F7F8F6; --surface:#FFFFFF; --ink:#15181A; --ink-soft:#4C544F;
+    --ink-faint:#646C67; --rule:#D4D7D1; --rule-soft:#E6E8E4;
+    --spruce:#0E7C66; --brick:#A3341F; --amber:#8A6410; --wash:#EDF1EE;
+    --display:"Archivo","Helvetica Neue",Arial,sans-serif;
+    --body:"Instrument Sans","Helvetica Neue",Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#101311; --surface:#171B19; --ink:#ECEFEB; --ink-soft:#A3AAA5;
+      --ink-faint:#8E9691; --rule:#2E3431; --rule-soft:#232826;
+      --spruce:#3FC6A6; --brick:#E5745A; --amber:#D2A33F; --wash:#182220;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#101311; --surface:#171B19; --ink:#ECEFEB; --ink-soft:#A3AAA5;
+    --ink-faint:#8E9691; --rule:#2E3431; --rule-soft:#232826;
+    --spruce:#3FC6A6; --brick:#E5745A; --amber:#D2A33F; --wash:#182220;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--ground); color:var(--ink); font-family:var(--body);
+         font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1120px; margin:0 auto; padding-inline:20px; }
+  .mono { font-family:var(--mono); font-size:11px; font-weight:500;
+          letter-spacing:.13em; text-transform:uppercase; color:var(--ink-faint); }
+
+  header.top { border-bottom:1px solid var(--rule-soft); }
+  .top-in { display:flex; align-items:baseline; justify-content:space-between;
+            gap:16px; padding-block:16px; flex-wrap:wrap; }
+  .brand { font-family:var(--display); font-weight:800; font-size:18px; letter-spacing:-.025em; }
+  .brand span { color:var(--spruce); }
+
+  .hero { padding-block:40px 18px; }
+  .hero-head { display:flex; justify-content:space-between; align-items:flex-end;
+               gap:32px; flex-wrap:wrap; margin-bottom:24px; }
+  h1 { font-family:var(--display); font-weight:800; font-size:clamp(32px,5.6vw,58px);
+       line-height:1.02; letter-spacing:-.035em; margin:10px 0 0; max-width:16ch; text-wrap:balance; }
+  h1 em { font-style:normal; color:var(--spruce); }
+  .sub { margin:0; color:var(--ink-soft); font-size:16.5px; max-width:34ch; }
+
+  /* ---------- film ---------- */
+  .film { position:relative; background:var(--surface); border:1px solid var(--rule); overflow:hidden; }
+  #room { display:block; width:100%; aspect-ratio:16/9; max-width:100%; touch-action:none; }
+  @media (max-width:700px){ #room { aspect-ratio:4/3; } }
+  .film.done #room { cursor:grab; }
+  .film.done #room:active { cursor:grabbing; }
+
+  .layer { position:absolute; inset:0; pointer-events:none; }
+
+  /* phone frame during scan */
+  .phone { position:absolute; inset:7% 30% calc(7% + 52px); border:2px solid var(--spruce); border-radius:20px;
+           opacity:0; transition:opacity .5s ease; }
+  .phone::before { content:""; position:absolute; top:8px; left:50%; transform:translateX(-50%);
+                   width:44px; height:4px; border-radius:3px; background:var(--spruce); opacity:.55; }
+  .phone-tag { position:absolute; left:50%; bottom:14px; transform:translateX(-50%);
+               font-family:var(--mono); font-size:11px; letter-spacing:.14em;
+               text-transform:uppercase; color:var(--spruce); white-space:nowrap; }
+  .film[data-beat="scan"] .phone { opacity:1; }
+
+  /* tap ripple */
+  .tap { position:absolute; width:22px; height:22px; margin:-11px 0 0 -11px; border-radius:50%;
+         background:var(--ink); opacity:0; }
+  .tap::after { content:""; position:absolute; inset:-10px; border-radius:50%;
+                border:2px solid var(--ink); opacity:0; }
+  .tap.go { animation:tapdot .7s ease forwards; }
+  .tap.go::after { animation:tapring .7s ease forwards; }
+  @keyframes tapdot { 0%{opacity:0;transform:scale(.4)} 25%{opacity:.85;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes tapring { 0%{opacity:.7;transform:scale(.4)} 100%{opacity:0;transform:scale(1.9)} }
+
+  /* candidate cards */
+  .cards { position:absolute; right:14px; top:50%; transform:translateY(-50%);
+           display:flex; flex-direction:column; gap:7px; width:210px; max-width:46%; }
+  .card { background:var(--surface); border:1px solid var(--rule); padding:9px 11px;
+          opacity:0; transform:translateX(16px); transition:opacity .35s ease, transform .35s ease,
+          border-color .3s ease, background .3s ease; }
+  .card.in { opacity:1; transform:none; }
+  .card.pick { border-color:var(--spruce); background:var(--wash); }
+  .card.out { opacity:0; transform:translateX(16px); }
+  .c-row { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .c-name { font-family:var(--display); font-weight:600; font-size:12.5px; letter-spacing:-.01em; }
+  .c-dim { font-family:var(--mono); font-size:10.5px; color:var(--ink-faint);
+           font-variant-numeric:tabular-nums; margin-top:3px; }
+  .c-v { font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.1em;
+         text-transform:uppercase; }
+  .c-v.fit{color:var(--spruce)} .c-v.tight{color:var(--amber)} .c-v.no{color:var(--brick)}
+
+  /* buy */
+  .buy { position:absolute; left:50%; bottom:16px; transform:translate(-50%,10px);
+         background:var(--ink); color:var(--ground); font:600 13px/1 var(--display);
+         padding:12px 20px; opacity:0; transition:opacity .35s ease, transform .35s ease;
+         display:flex; align-items:center; gap:9px; white-space:nowrap; }
+  .buy.in { opacity:1; transform:translate(-50%,0); }
+  .buy.ok { background:var(--spruce); }
+  .buy .px { font-family:var(--mono); font-size:11.5px; opacity:.72; }
+
+  /* beat chrome */
+  .beat { position:absolute; top:14px; left:14px; font-family:var(--mono); font-size:11px;
+          letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); }
+  .beat b { color:var(--spruce); font-weight:500; }
+  .badge { position:absolute; top:12px; right:14px; font-family:var(--mono); font-size:11px;
+           font-weight:500; letter-spacing:.12em; text-transform:uppercase; padding:6px 11px;
+           border:1.5px solid currentColor; background:var(--surface);
+           opacity:0; transition:opacity .3s ease; }
+  .badge.in { opacity:1; }
+  .badge[data-s="fit"]{color:var(--spruce)} .badge[data-s="tight"]{color:var(--amber)}
+  .badge[data-s="nofit"]{color:var(--brick)}
+
+  .bar { border-top:1px solid var(--rule-soft); padding:10px 14px; display:flex;
+         justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; }
+  .ticks { display:flex; gap:5px; align-items:center; }
+  .tick { width:26px; height:3px; background:var(--rule); }
+  .tick.on { background:var(--spruce); }
+  .readout { font-family:var(--mono); font-size:11.5px; color:var(--ink-faint);
+             font-variant-numeric:tabular-nums; letter-spacing:.04em; }
+  .readout b { color:var(--ink); font-weight:500; }
+  .replay { font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+            color:var(--ink-soft); background:transparent; border:1px solid var(--rule);
+            padding:0 14px; min-height:40px; cursor:pointer; }
+  .replay:hover { border-color:var(--ink-faint); color:var(--ink); }
+  .replay:focus-visible { outline:2px solid var(--spruce); outline-offset:2px; }
+
+  /* ---------- cta ---------- */
+  .cta { padding-block:24px 48px; }
+  form.su { display:flex; gap:8px; flex-wrap:wrap; max-width:470px; }
+  form.su input { flex:1 1 220px; min-width:0; font:400 15px/1.4 var(--body); color:var(--ink);
+                  background:var(--surface); border:1px solid var(--rule); padding:12px 14px; }
+  form.su input::placeholder { color:var(--ink-faint); }
+  form.su input:focus-visible { outline:2px solid var(--spruce); outline-offset:-1px; }
+  form.su button { font:600 14px/1 var(--display); color:var(--ground); background:var(--ink);
+                   border:1px solid var(--ink); padding:13px 24px; cursor:pointer; }
+  form.su button:hover { background:var(--spruce); border-color:var(--spruce); }
+  form.su button:focus-visible { outline:2px solid var(--spruce); outline-offset:2px; }
+  .su-label { display:block; font:600 15px/1.3 var(--display); margin:0 0 10px; }
+  .su-note { margin:10px 0 0; font-size:13.5px; color:var(--ink-faint); max-width:52ch; }
+  .su-ok { margin:0; font-family:var(--mono); font-size:13.5px; color:var(--spruce); }
+
+  section { border-top:1px solid var(--rule-soft); padding-block:42px; }
+  h2 { font-family:var(--display); font-weight:600; font-size:clamp(21px,2.7vw,27px);
+       letter-spacing:-.022em; line-height:1.15; margin:12px 0 0; text-wrap:balance; }
+  .moments { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+             gap:1px; background:var(--rule-soft); border:1px solid var(--rule-soft); margin-top:20px; }
+  .m { background:var(--ground); padding:0 0 16px; }
+  .m svg { display:block; width:100%; height:auto; background:var(--surface); }
+  .m-txt { padding:13px 16px 0; }
+  .m h3 { font-family:var(--display); font-weight:600; font-size:15.5px; margin:5px 0 4px; letter-spacing:-.01em; }
+  .m p { margin:0; font-size:14px; color:var(--ink-soft); }
+
+  .money { margin-top:14px; font-size:16px; color:var(--ink-soft); max-width:64ch; }
+  .money p { margin:0 0 12px; } .money p:last-child { margin:0; }
+  .money strong { color:var(--ink); font-weight:500; }
+
+  footer { border-top:1px solid var(--rule); padding-block:26px 40px; font-size:13.5px; color:var(--ink-faint); }
+  .foot-in { display:flex; justify-content:space-between; gap:18px; flex-wrap:wrap; }
+  footer a { color:var(--ink-soft); }
+  .foot-mono { font-family:var(--mono); font-size:11px; letter-spacing:.06em; line-height:1.7; }
+
+  @media (max-width:560px){ .cards { width:150px; right:8px; } .card { padding:7px 9px; } }
+  @media (prefers-reduced-motion: reduce){ * { animation:none!important; transition:none!important; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap top-in">
+    <div class="brand">Open<span>Space</span></div>
+    <div class="mono">iPhone Pro &middot; In development</div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div class="hero-head">
+      <h1>Know it <em>fits</em> before you buy it.</h1>
+      <p class="sub">Scan your room with an iPhone Pro. Tap the piece you want to replace. OpenSpace checks real products against your walls, walkway, doors and delivery path, then sends you to the retailer to buy.</p>
+    </div>
+
+    <div class="film" id="film" data-beat="scan">
+      <canvas id="room" aria-label="Animated demo: a room is scanned with a phone, the old sofa is tapped, matching sofas are found, and one is placed in the room."></canvas>
+
+      <div class="layer">
+        <div class="beat" id="beat"><b>01</b> &nbsp;Scanning the room</div>
+        <div class="badge" id="badge" data-s="fit">Fits</div>
+        <div class="phone"><span class="phone-tag">Walk the corner &middot; 00:14</span></div>
+        <div class="tap" id="tap"></div>
+
+        <div class="cards" id="cards">
+          <div class="card" data-i="0">
+            <div class="c-row"><span class="c-name">Halden 3-seat</span><span class="c-v no">Won't fit</span></div>
+            <div class="c-dim">3.70 &times; 0.95 m &middot; $1,890</div>
+          </div>
+          <div class="card" data-i="1">
+            <div class="c-row"><span class="c-name">Marlow Loveseat</span><span class="c-v tight">Tight</span></div>
+            <div class="c-dim">3.22 &times; 0.92 m &middot; $1,240</div>
+          </div>
+          <div class="card" data-i="2">
+            <div class="c-row"><span class="c-name">Oren 3-seat</span><span class="c-v fit">Fits</span></div>
+            <div class="c-dim">2.20 &times; 0.92 m &middot; $1,460</div>
+          </div>
+        </div>
+
+        <div class="buy" id="buy"><span id="buyTxt">Buy at retailer</span> <span class="px" id="buyPx">$1,460</span></div>
+      </div>
+
+      <div class="bar">
+        <div class="ticks" id="ticks" aria-hidden="true"></div>
+        <div class="readout" id="readout">Point the camera at the corner</div>
+        <button type="button" class="replay" id="replay">Replay</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap cta">
+    <label class="su-label" for="em">Get one email when the iPhone beta opens</label>
+    <form class="su" id="su" novalidate>
+      <input id="em" name="email" type="email" placeholder="you@example.com" autocomplete="email" required>
+      <button type="submit" id="sub">Join the beta list</button>
+    </form>
+    <p class="su-note" id="note">We use your address only for that email. We do not share or sell it.</p>
+    <p class="su-ok" id="ok" hidden>Thanks &mdash; you're on the list.</p>
+  </div>
+
+  <section>
+    <div class="wrap">
+      <h2>Three measurements a product page never gives you.</h2>
+      <div class="moments">
+        <div class="m">
+          <svg viewBox="0 0 300 190" role="img" aria-label="Plan view: sofa against a wall with a 0.92 metre walkway in front.">
+            <line x1="26" y1="30" x2="274" y2="30" stroke="var(--ink)" stroke-width="2"></line>
+            <rect x="72" y="34" width="156" height="42" fill="var(--wash)" stroke="var(--spruce)" stroke-width="1.5"></rect>
+            <rect x="106" y="120" width="88" height="32" fill="none" stroke="var(--rule)" stroke-width="1.5"></rect>
+            <line x1="150" y1="80" x2="150" y2="116" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="3 3"></line>
+            <path d="M 150 82 l -4 6 l 8 0 z" fill="var(--ink-faint)"></path>
+            <path d="M 150 114 l -4 -6 l 8 0 z" fill="var(--ink-faint)"></path>
+            <text x="160" y="102" font-family="IBM Plex Mono, monospace" font-size="13" fill="var(--ink)">0.92 m</text>
+            <text x="26" y="176" font-family="IBM Plex Mono, monospace" font-size="10" letter-spacing="1.2" fill="var(--ink-faint)">WALKWAY &mdash; PLAN</text>
+          </svg>
+          <div class="m-txt"><h3>Walkway clearance</h3><p>Not just whether it fits the wall. Whether you can still walk past it.</p></div>
+        </div>
+        <div class="m">
+          <svg viewBox="0 0 300 190" role="img" aria-label="Plan view: a cabinet with its door swing arc, needing 0.55 metres to open.">
+            <line x1="26" y1="30" x2="274" y2="30" stroke="var(--ink)" stroke-width="2"></line>
+            <rect x="92" y="34" width="116" height="40" fill="var(--wash)" stroke="var(--spruce)" stroke-width="1.5"></rect>
+            <path d="M 150 74 A 56 56 0 0 0 206 130" fill="none" stroke="var(--amber)" stroke-width="1.2" stroke-dasharray="4 3"></path>
+            <line x1="150" y1="74" x2="150" y2="130" stroke="var(--amber)" stroke-width="1.5"></line>
+            <line x1="150" y1="74" x2="206" y2="74" stroke="var(--amber)" stroke-width="1.5" opacity="0.4"></line>
+            <text x="166" y="152" font-family="IBM Plex Mono, monospace" font-size="13" fill="var(--amber)">0.55 m</text>
+            <text x="26" y="176" font-family="IBM Plex Mono, monospace" font-size="10" letter-spacing="1.2" fill="var(--ink-faint)">DOOR SWING &mdash; PLAN</text>
+          </svg>
+          <div class="m-txt"><h3>Door &amp; drawer swing</h3><p>A cabinet that can't open its own doors is a return waiting to happen.</p></div>
+        </div>
+        <div class="m">
+          <svg viewBox="0 0 300 190" role="img" aria-label="Plan view: a sofa rotating through a 0.82 metre doorway.">
+            <line x1="26" y1="34" x2="112" y2="34" stroke="var(--ink)" stroke-width="2"></line>
+            <line x1="188" y1="34" x2="274" y2="34" stroke="var(--ink)" stroke-width="2"></line>
+            <path d="M 112 34 A 76 76 0 0 1 112 110" fill="none" stroke="var(--rule)" stroke-width="1.2"></path>
+            <line x1="112" y1="34" x2="112" y2="110" stroke="var(--rule)" stroke-width="1.5"></line>
+            <line x1="114" y1="22" x2="186" y2="22" stroke="var(--ink-faint)" stroke-width="1"></line>
+            <path d="M 116 22 l 6 -4 l 0 8 z" fill="var(--ink-faint)"></path>
+            <path d="M 184 22 l -6 -4 l 0 8 z" fill="var(--ink-faint)"></path>
+            <text x="150" y="15" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--ink)">0.82 m</text>
+            <g transform="rotate(-34 150 108)"><rect x="88" y="90" width="124" height="36" fill="var(--wash)" stroke="var(--brick)" stroke-width="1.5"></rect></g>
+            <text x="26" y="176" font-family="IBM Plex Mono, monospace" font-size="10" letter-spacing="1.2" fill="var(--ink-faint)">DELIVERY PATH &mdash; PLAN</text>
+          </svg>
+          <div class="m-txt"><h3>Delivery path</h3><p>The priciest return is the one that never makes it through the door.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>How OpenSpace makes money</h2>
+      <div class="money">
+        <p>OpenSpace is <strong>free</strong> and never takes payment in the app. When you buy something
+          you found here, we link you to the retailer, and the retailer pays us a commission through affiliate
+          networks such as <strong>Awin</strong>. Your price is the same.</p>
+        <p>A piece of furniture that gets returned earns us nothing &mdash; so <strong>we only make money
+          when it actually fits</strong>. Retailer links here and in the app are affiliate links,
+          disclosed wherever they appear.</p>
+      </div>
+    </div>
+  </section>
+
+<section id="about">
+<div class="wrap">
+<h2>Who is building this</h2>
+<div class="money">
+<p>OpenSpace is an independent project by <strong>Tianduo Zhai</strong>. It starts with one question people ask before every big furniture purchase:
+<em>will this actually fit?</em></p>
+<p>The iOS app scans a room with the iPhone Pro LiDAR sensor, measures it, and checks a real,
+purchasable product against the walls, walkways, doors and delivery path. It is in
+development now. Questions, partnerships or press:
+<a href="mailto:zhaitianduo@icloud.com">zhaitianduo@icloud.com</a>.</p>
+</div>
+</div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap foot-in">
+    <div>
+      <div class="brand" style="font-size:15px;">Open<span>Space</span></div>
+      <div style="margin-top:5px;">Independent project by Tianduo Zhai &middot;
+        <a href="mailto:zhaitianduo@icloud.com">zhaitianduo@icloud.com</a></div>
+    </div>
+    <div class="foot-mono">In development &middot; Nothing shipped yet<br>Retailer links are affiliate links</div>
+  </div>
+</footer>
+
+<script>
+  var FORM_ENDPOINT = "";           // Formspree / Tally / Buttondown endpoint
+  var CONTACT = "zhaitianduo@icloud.com";
+
+  /* =========================================================
+     The film: scan -> model -> tap -> match -> place -> buy
+     ========================================================= */
+  (function () {
+    var canvas = document.getElementById("room");
+    if (!canvas || typeof THREE === "undefined") return;
+
+    var film = document.getElementById("film"),
+        beatEl = document.getElementById("beat"),
+        badge = document.getElementById("badge"),
+        readout = document.getElementById("readout"),
+        cardsEl = document.getElementById("cards"),
+        cards = [].slice.call(cardsEl.querySelectorAll(".card")),
+        tapEl = document.getElementById("tap"),
+        buy = document.getElementById("buy"),
+        buyTxt = document.getElementById("buyTxt"),
+        buyPx = document.getElementById("buyPx"),
+        ticksEl = document.getElementById("ticks"),
+        replay = document.getElementById("replay");
+
+    var WALL = 3.40, DEPTH = 3.9, HEIGHT = 2.55, NEW_W = 2.20, OLD_W = 2.62;
+
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(38, 16 / 9, 0.1, 100);
+    var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    function isDark() {
+      var c = getComputedStyle(document.body).backgroundColor;
+      return c === "rgb(16, 19, 17)";
+    }
+    var M = {};
+    function materials() {
+      var d = isDark();
+      M.floor = new THREE.MeshLambertMaterial({ color: d ? 0x232826 : 0xE8E6DF, transparent: true });
+      M.wall  = new THREE.MeshLambertMaterial({ color: d ? 0x1D2220 : 0xF2F2EE, transparent: true });
+      M.wood  = new THREE.MeshLambertMaterial({ color: d ? 0x4A3B2C : 0x8A6E52, transparent: true });
+      M.rug   = new THREE.MeshLambertMaterial({ color: d ? 0x2A2F2C : 0xDCD8CC, transparent: true });
+      M.old   = new THREE.MeshLambertMaterial({ color: d ? 0x404743 : 0xA8A49A, transparent: true });
+      M.oldHi = new THREE.MeshLambertMaterial({ color: d ? 0xD2A33F : 0x8A6410, transparent: true });
+      M.neu   = new THREE.MeshLambertMaterial({ color: d ? 0x2E7F6C : 0x2F6F5E, transparent: true });
+      M.cush  = new THREE.MeshLambertMaterial({ color: d ? 0x3A9A83 : 0x3E8A74, transparent: true });
+      M.pts   = new THREE.PointsMaterial({ color: d ? 0x3FC6A6 : 0x0E7C66, size: 0.028, transparent: true });
+    }
+    materials();
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.72));
+    var key = new THREE.DirectionalLight(0xffffff, 0.62); key.position.set(2.4, 4, 3.2); scene.add(key);
+    var fil = new THREE.DirectionalLight(0xffffff, 0.22); fil.position.set(-3, 2, -2); scene.add(fil);
+
+    var solids = new THREE.Group(); scene.add(solids);
+    var oldSofa = new THREE.Group(); solids.add(oldSofa);
+    var newSofa = new THREE.Group(); solids.add(newSofa);
+
+    function box(w, h, d, m) { return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); }
+
+    var floor = box(WALL, .04, DEPTH, M.floor); floor.position.y = -.02; solids.add(floor);
+    var rug = box(2.6, .012, 1.9, M.rug); rug.position.set(0, .012, .25); solids.add(rug);
+    var back = box(WALL, HEIGHT, .06, M.wall); back.position.set(0, HEIGHT / 2, -DEPTH / 2); solids.add(back);
+    var lwall = box(.06, HEIGHT, DEPTH, M.wall); lwall.position.set(-WALL / 2, HEIGHT / 2, 0); solids.add(lwall);
+    var win = box(1.1, .95, .02, new THREE.MeshBasicMaterial({ color: 0xBBD4DD, transparent: true }));
+    win.position.set(.85, 1.42, -DEPTH / 2 + .05); solids.add(win);
+    var tbl = box(1.0, .06, .52, M.wood); tbl.position.set(0, .42, .55); solids.add(tbl);
+    [[-.44, .11], [.44, .11], [-.44, .77], [.44, .77]].forEach(function (p) {
+      var leg = box(.05, .4, .05, M.wood); leg.position.set(p[0], .2, p[1]); solids.add(leg);
+    });
+
+    function buildSofa(group, w, bodyMat, cushMat) {
+      while (group.children.length) group.remove(group.children[0]);
+      var base = box(w, .36, .92, bodyMat);
+      base.position.set(0, .2, 0);
+      group.add(base);
+      var backrest = box(w, .46, .2, bodyMat);
+      backrest.position.set(0, .55, -.36);
+      group.add(backrest);
+      var n = w > 2.4 ? 3 : 2, cw = (w - .16) / n;
+      for (var i = 0; i < n; i++) {
+        var c = box(cw - .04, .16, .8, cushMat);
+        c.position.set(-w / 2 + .08 + cw * (i + .5), .45, .02);
+        group.add(c);
+      }
+      [-1, 1].forEach(function (s) {
+        var a = box(.16, .56, .92, bodyMat);
+        a.position.set(s * (w / 2 - .08), .32, 0);
+        group.add(a);
+      });
+      group.position.set(0, 0, -DEPTH / 2 + .52);
+    }
+    buildSofa(oldSofa, OLD_W, M.old, M.old);
+    buildSofa(newSofa, NEW_W, M.neu, M.cush);
+
+    // point cloud sampled over the room surfaces
+    var cloud;
+    (function () {
+      var pos = [], i;
+      for (i = 0; i < 900; i++) pos.push((Math.random() - .5) * WALL, 0.005, (Math.random() - .5) * DEPTH);
+      for (i = 0; i < 700; i++) pos.push((Math.random() - .5) * WALL, Math.random() * HEIGHT, -DEPTH / 2 + .04);
+      for (i = 0; i < 600; i++) pos.push(-WALL / 2 + .04, Math.random() * HEIGHT, (Math.random() - .5) * DEPTH);
+      for (i = 0; i < 500; i++) pos.push((Math.random() - .5) * OLD_W, .1 + Math.random() * .6, -DEPTH / 2 + .2 + Math.random() * .8);
+      var g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+      cloud = new THREE.Points(g, M.pts);
+      scene.add(cloud);
+    })();
+
+    // camera
+    var cam = { yaw: -0.30, pitch: 0.22, dist: 5.4 };
+    function place() {
+      camera.position.set(
+        Math.sin(cam.yaw) * Math.cos(cam.pitch) * cam.dist,
+        Math.sin(cam.pitch) * cam.dist + 0.6,
+        Math.cos(cam.yaw) * Math.cos(cam.pitch) * cam.dist
+      );
+      camera.lookAt(0, 0.85, -0.35);
+    }
+
+    function setOpacity(group, o) {
+      group.traverse(function (n) { if (n.material) { n.material.opacity = o; n.material.needsUpdate = true; } });
+    }
+    function solidOpacity(o) {
+      solids.children.forEach(function (n) {
+        if (n === oldSofa || n === newSofa) return;
+        if (n.material) n.material.opacity = o;
+      });
+    }
+
+    /* ---------- timeline ---------- */
+    var BEATS = [
+      { id: "scan",  t: 3400, label: "Scanning the room" },
+      { id: "model", t: 1900, label: "Your room, in 3D" },
+      { id: "tap",   t: 2100, label: "Tap the sofa to replace" },
+      { id: "match", t: 3000, label: "Finding what fits" },
+      { id: "place", t: 3000, label: "In your room" },
+      { id: "buy",   t: 3200, label: "Straight to the store" }
+    ];
+    var TOTAL = BEATS.reduce(function (a, b) { return a + b.t; }, 0);
+
+    BEATS.forEach(function () {
+      var d = document.createElement("span"); d.className = "tick"; ticksEl.appendChild(d);
+    });
+    var tickEls = [].slice.call(ticksEl.children);
+
+    var t0 = 0, playing = true, interactive = false;
+    function ease(x) { return x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
+    function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+
+    function resetFilm() {
+      cards.forEach(function (c) { c.className = "card"; });
+      buy.className = "buy"; buyTxt.textContent = "Buy at retailer"; buyPx.hidden = false;
+      badge.className = "badge"; tapEl.className = "tap";
+      newSofa.visible = false; oldSofa.visible = true;
+      setOpacity(oldSofa, 1); setOpacity(newSofa, 1);
+      cloud.visible = true;
+      film.dataset.beat = "scan";
+    }
+
+    function frame(now) {
+      if (!t0) t0 = now;
+      var el = (now - t0) % TOTAL, acc = 0, idx = 0, local = 0;
+      for (var i = 0; i < BEATS.length; i++) {
+        if (el < acc + BEATS[i].t) { idx = i; local = (el - acc) / BEATS[i].t; break; }
+        acc += BEATS[i].t;
+      }
+      var b = BEATS[idx];
+      if (film.dataset.beat !== b.id) {
+        film.dataset.beat = b.id;
+        beatEl.innerHTML = "<b>" + String(idx + 1).padStart(2, "0") + "</b> &nbsp;" + b.label;
+        tickEls.forEach(function (t, i) { t.classList.toggle("on", i <= idx); });
+        if (b.id === "scan") resetFilm();
+        if (b.id === "tap") { tapEl.className = "tap"; void tapEl.offsetWidth; tapEl.classList.add("go"); }
+      }
+
+      var p = ease(clamp01(local));
+
+      if (b.id === "scan") {
+        cloud.visible = true;
+        M.pts.opacity = 0.95;
+        // reveal the cloud from the floor up
+        cloud.geometry.setDrawRange(0, Math.floor(p * cloud.geometry.attributes.position.count));
+        solidOpacity(0.10 + p * 0.18);
+        setOpacity(oldSofa, 0.10 + p * 0.18);
+        cam.yaw = -0.55 + p * 0.55; cam.pitch = 0.20; cam.dist = 4.8;
+        readout.innerHTML = "Captured <b>" + Math.round(p * 100) + "%</b> &middot; walls, floor, furniture";
+      }
+      else if (b.id === "model") {
+        cloud.geometry.setDrawRange(0, cloud.geometry.attributes.position.count);
+        M.pts.opacity = 0.95 * (1 - p);
+        if (p > .97) cloud.visible = false;
+        solidOpacity(0.28 + p * 0.72);
+        setOpacity(oldSofa, 0.28 + p * 0.72);
+        cam.yaw = 0 - p * 0.30; cam.pitch = 0.20 + p * 0.06; cam.dist = 4.8 + p * 0.9;
+        readout.innerHTML = "Wall <b>3.40 m</b> &middot; depth <b>3.90 m</b> &middot; &plusmn;12 mm";
+      }
+      else if (b.id === "tap") {
+        cloud.visible = false; solidOpacity(1);
+        var pulse = 0.5 + 0.5 * Math.sin(local * Math.PI * 6);
+        oldSofa.traverse(function (n) { if (n.isMesh) n.material = pulse > .5 ? M.oldHi : M.old; });
+        setOpacity(oldSofa, 1);
+        cam.yaw = -0.30; cam.pitch = 0.26; cam.dist = 5.7;
+        readout.innerHTML = "Your sofa &middot; <b>2.62 m</b> wide &middot; replacing it";
+      }
+      else if (b.id === "match") {
+        oldSofa.traverse(function (n) { if (n.isMesh) n.material = M.old; });
+        setOpacity(oldSofa, 1 - p * 0.75);
+        cards.forEach(function (c, i) {
+          var show = local > 0.12 + i * 0.16;
+          c.classList.toggle("in", show);
+          c.classList.toggle("pick", i === 2 && local > 0.72);
+        });
+        cam.yaw = -0.30 - p * 0.08; cam.pitch = 0.26; cam.dist = 5.7;
+        readout.innerHTML = "Checked <b>" + (40 + Math.round(p * 174)) + "</b> sofas &middot; <b>" + (local > .5 ? 38 : 4 + Math.round(p * 68)) + "</b> fit your wall";
+      }
+      else if (b.id === "place") {
+        cards.forEach(function (c, i) {
+          if (i !== 2) c.classList.add("out");
+          else { c.classList.add("in"); c.classList.add("pick"); }
+        });
+        oldSofa.visible = false;
+        newSofa.visible = true;
+        var drop = 1 - Math.pow(1 - clamp01(local / 0.55), 3);
+        newSofa.position.y = (1 - drop) * 1.6;
+        setOpacity(newSofa, Math.min(1, local / 0.3));
+        if (local > 0.6) { badge.dataset.s = "fit"; badge.textContent = "Fits"; badge.classList.add("in"); }
+        cam.yaw = -0.38 + p * 0.5; cam.pitch = 0.24; cam.dist = 5.6;
+        var gap = (WALL - NEW_W) / 2;
+        readout.innerHTML = "Oren 3-seat &middot; <b>2.20 m</b> &middot; clear <b>" + gap.toFixed(2) + " m</b> each side";
+      }
+      else if (b.id === "buy") {
+        cards.forEach(function (c, i) { if (i !== 2) c.classList.add("out"); });
+        newSofa.visible = true; newSofa.position.y = 0; setOpacity(newSofa, 1);
+        badge.classList.add("in");
+        if (local > 0.15) buy.classList.add("in");
+        if (local > 0.62) { buy.classList.add("ok"); buyTxt.textContent = "Opening retailer…"; buyPx.hidden = true; }
+        cam.yaw = 0.12 - p * 0.1; cam.pitch = 0.22; cam.dist = 5.4 - p * 0.35;
+        readout.innerHTML = local > 0.62
+          ? "Checkout happens at the store &mdash; not here"
+          : "Walkway <b>0.92 m</b> &middot; door swing OK &middot; fits through <b>0.82 m</b> door";
+      }
+
+      if (!interactive) place();
+      renderer.render(scene, camera);
+      if (playing) requestAnimationFrame(frame);
+    }
+
+    function resize() {
+      var w = canvas.clientWidth, h = canvas.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+      place(); renderer.render(scene, camera);
+      // keep the tap dot on the old sofa
+      tapEl.style.left = (w * 0.44) + "px";
+      tapEl.style.top = (h * 0.52) + "px";
+    }
+    window.addEventListener("resize", resize);
+
+    replay.addEventListener("click", function () {
+      interactive = false; film.classList.remove("done");
+      t0 = 0; resetFilm();
+      if (!playing) { playing = true; requestAnimationFrame(frame); }
+    });
+
+    // drag takes over: stop the film, let people look around
+    canvas.addEventListener("pointerdown", function (e) {
+      interactive = true; playing = false; film.classList.add("done");
+      oldSofa.visible = false; newSofa.visible = true; newSofa.position.y = 0;
+      setOpacity(newSofa, 1); solidOpacity(1); cloud.visible = false;
+      badge.classList.add("in");
+      readout.innerHTML = "Drag to look around &middot; clear <b>0.60 m</b> each side";
+      var px = e.clientX, py = e.clientY, dragging = true;
+      canvas.setPointerCapture(e.pointerId);
+      function mv(ev) {
+        if (!dragging) return;
+        cam.yaw -= (ev.clientX - px) * 0.007;
+        cam.pitch = Math.max(0.06, Math.min(0.72, cam.pitch + (ev.clientY - py) * 0.005));
+        cam.yaw = Math.max(-1.15, Math.min(0.75, cam.yaw));
+        px = ev.clientX; py = ev.clientY;
+        place(); renderer.render(scene, camera);
+      }
+      function up() {
+        dragging = false;
+        canvas.removeEventListener("pointermove", mv);
+      }
+      canvas.addEventListener("pointermove", mv);
+      ["pointerup", "pointercancel"].forEach(function (ev) { canvas.addEventListener(ev, up, { once: true }); });
+    });
+
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    if (mq.addEventListener) mq.addEventListener("change", function () {
+      materials();
+      buildSofa(oldSofa, OLD_W, M.old, M.old);
+      buildSofa(newSofa, NEW_W, M.neu, M.cush);
+      renderer.render(scene, camera);
+    });
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      playing = false; resetFilm(); oldSofa.visible = false; newSofa.visible = true;
+      solidOpacity(1); cloud.visible = false; badge.classList.add("in");
+      beatEl.innerHTML = "<b>06</b> &nbsp;In your room";
+      readout.innerHTML = "Clear <b>0.60 m</b> each side &middot; drag to look around";
+      tickEls.forEach(function (t) { t.classList.add("on"); });
+      resize();
+    } else {
+      resetFilm();
+      requestAnimationFrame(function (n) { resize(); frame(n); });
+    }
+    requestAnimationFrame(resize);
+  })();
+
+  /* ---------------- signup ---------------- */
+  (function () {
+    var form = document.getElementById("su"), input = document.getElementById("em"),
+        note = document.getElementById("note"), ok = document.getElementById("ok"),
+        btn = document.getElementById("sub");
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var v = (input.value || "").trim();
+      if (!v || v.indexOf("@") < 1 || v.indexOf(".") < 0) {
+        note.textContent = "That address looks incomplete — check it and try again.";
+        input.focus(); return;
+      }
+      function done() { form.hidden = true; note.hidden = true; ok.hidden = false; }
+      if (!FORM_ENDPOINT) {
+        window.location.href = "mailto:" + CONTACT +
+          "?subject=" + encodeURIComponent("OpenSpace beta") +
+          "&body=" + encodeURIComponent("Add me to the list: " + v);
+        done(); return;
+      }
+      btn.disabled = true; btn.textContent = "Sending…";
+      fetch(FORM_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ email: v, source: "openspace-landing" })
+      }).then(done).catch(function () {
+        btn.disabled = false; btn.textContent = "Get the beta";
+        note.textContent = "That didn't go through. Email " + CONTACT + " and I'll add you.";
+      });
+    });
+  })();
+</script>
+</body>
+</html>
